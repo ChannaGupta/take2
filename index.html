@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Donut Dusk!</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-dark: #2c3e50;
+    --bg-light: #34495e;
+    --game-bg: #4a6681;
+    --score-c: #f1c40f;
+    --success: #2ecc71;
+    --danger: #e74c3c;
+    --btn1: #8e44ad;
+    --btn2: #c097d7;
+    --text-light: #ecf0f1;
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family:'Open Sans',sans-serif;
+    background:linear-gradient(to bottom,var(--bg-dark),var(--bg-light));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--text-light);
+    overflow:hidden;
+    text-align:center;
+  }
+
+  h1,h2 {
+    font-family:'Fredoka One';
+    text-shadow:3px 3px 6px rgba(0,0,0,0.3);
+    margin:10px 0;
+  }
+
+  button {
+    padding:12px 25px;
+    font-family:'Fredoka One';
+    font-size:1.1rem;
+    background:var(--btn1);
+    color:#fff;
+    border:none;
+    border-radius:30px;
+    cursor:pointer;
+    box-shadow:0 5px 15px rgba(0,0,0,0.2);
+    transition:all .3s;
+    margin:10px;
+  }
+  button:hover {
+    background:var(--btn2);
+    transform:translateY(-2px) scale(1.02);
+  }
+
+  .screen {
+    display:none;
+    position:absolute;
+    width:90vw;
+    max-width:800px;
+    background:rgba(0,0,0,0.6);
+    border-radius:20px;
+    padding:30px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.5);
+    backdrop-filter:blur(5px);
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    opacity:0;
+    transition:opacity .5s, transform .5s;
+    flex-direction:column;
+    align-items:center;
+    z-index: 10;
+  }
+  .screen.active {
+    display:flex;
+    opacity:1;
+    transform:translate(-50%,-50%);
+    z-index: 20;
+  }
+
+  #game-screen {
+    position:relative;
+    width:90vw;
+    max-width:800px;
+    height:600px;
+    background:var(--game-bg);
+    border-radius:15px;
+    border:5px solid var(--text-light);
+    overflow:hidden;
+    animation:pulse 2s infinite alternate;
+    box-shadow:inset 0 0 15px rgba(0,0,0,0.5),0 10px 30px rgba(0,0,0,0.5);
+  }
+  @keyframes pulse {
+    from { box-shadow: inset 0 0 15px rgba(0,0,0,0.5),0 10px 30px rgba(0,0,0,0.5); }
+    to { box-shadow: inset 0 0 25px rgba(0,0,0,0.7),0 15px 40px rgba(0,0,0,0.7); }
+  }
+
+  #score-display, #lives-display, #tomato-strikes-display {
+    position:absolute;
+    top:15px;
+    padding:10px 20px;
+    background:rgba(0,0,0,0.7);
+    border-radius:15px;
+    font-family:'Fredoka One';
+    font-size:1.5rem;
+    font-weight:bold;
+    text-shadow:1px 1px 3px rgba(0,0,0,0.8);
+    z-index:100;
+    border:2px solid;
+  }
+  #score-display { left:15px; color:var(--score-c); border-color:var(--score-c); }
+  #lives-display { right:15px; color:var(--success); border-color:var(--success); }
+  #tomato-strikes-display { left:50%; transform:translateX(-50%); color:var(--danger); border-color:var(--danger); }
+
+  #lives-display.warning { color:orange; border-color:orange; }
+  #lives-display.critical { color:var(--danger); border-color:var(--danger); }
+
+  .game-object {
+    position:absolute;
+    top:-50px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+  }
+  .game-object svg { width:100%; height:100%; }
+  .game-object.donut { box-shadow:0 0 15px rgba(255,255,255,0.4); border-radius:50%; }
+  .game-object.tomato { box-shadow:0 0 15px rgba(255,0,0,0.6); border-radius:50%; }
+
+  #player-raccoon {
+    position:absolute;
+    bottom:10px;
+    left:50%;
+    width:100px;
+    height:100px;
+    transform:translateX(-50%);
+    transition: left 0.05s linear;
+  }
+  #player-raccoon svg,
+  #preview-raccoon svg,
+  .intro-raccoon svg {
+    width:100%; height:100%; position:relative; z-index:1;
+  }
+  #player-accessory-overlay svg,
+  #preview-accessory-overlay svg {
+    position:absolute; top:0; left:0; width:100%; height:100%; z-index:2;
+  }
+
+  #cosmetic-display {
+    display:flex;
+    flex-wrap:wrap;
+    gap:15px;
+    max-height:200px;
+    overflow-y:auto;
+    background:rgba(0,0,0,0.3);
+    border-radius:10px;
+    padding:15px;
+    justify-content:center;
+    margin-top: 20px;
+  }
+  .cosmetic-item {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    border:2px solid transparent;
+    padding:10px;
+    border-radius:10px;
+    background:rgba(255,255,255,0.1);
+    cursor:pointer;
+    transition:all .2s;
+  }
+  .cosmetic-item.locked { filter:grayscale(1) brightness(.5); opacity:.7; cursor:not-allowed; }
+  .cosmetic-item.unlocked { border-color:var(--score-c); }
+  .cosmetic-item.selected { border-color:var(--btn1); box-shadow:0 0 10px var(--btn1); transform:scale(1.05); }
+  .cosmetic-item:hover:not(.locked) { background:rgba(255,255,255,0.2); transform:scale(1.05); }
+  .cosmetic-cost { font-family:'Fredoka One'; font-size:.8rem; color:var(--score-c); }
+  .affordable { color:var(--success); }
+
+  .raccoon-svg {
+    filter: drop-shadow(3px 3px 6px rgba(0,0,0,0.5));
+  }
+  .donut-svg {
+    filter: drop-shadow(1px 1px 3px rgba(0,0,0,0.3));
+  }
+  .tomato-svg {
+    filter: drop-shadow(1px 1px 3px rgba(0,0,0,0.3));
+  }
+
+  .info-text {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    max-width: 600px;
+    margin: 20px auto;
+    text-align: left;
+  }
+  .info-text strong {
+    color: var(--score-c);
+  }
+</style>
+</head>
+<body>
+<audio id="game-music" loop>
+  <source src="https://upload.wikimedia.org/wikipedia/commons/e/e0/Joyful_Walk_-_Silent_Partner.mp3" type="audio/mpeg">
+</audio>
+
+<div id="welcome-screen" class="screen active">
+  <h1>Donut Dusk!</h1>
+  <div class="intro-raccoon" style="width:150px;height:150px;margin:20px auto;"><svg class="raccoon-svg" viewBox="0 0 100 100"></svg></div>
+  <p>Help our nocturnal friend gather tasty treats!</p>
+  <button onclick="showInfoScreen()">Play Now!</button>
+</div>
+
+<div id="info-screen" class="screen">
+  <h2>How to Play Donut Dusk!</h2>
+  <div class="info-text">
+    <p><strong>Objective:</strong> Catch as many delicious donuts as you can!</p>
+    <p><strong>Movement:</strong> Use the <strong>A</strong> and <strong>D</strong> keys to move your raccoon horizontally.</p>
+    <p><strong>Scoring:</strong> Each donut you catch is worth <strong>10 points</strong>.</p>
+    <p><strong>Lives:</strong> You start with <strong>3 lives</strong>. If you miss a donut, you lose 1 life.</p>
+    <p><strong>Game Over:</strong> Be careful! If you hit <strong>3 tomatoes</strong>, the game ends immediately. The game also ends if you run out of lives.</p>
+  </div>
+  <button onclick="showDifficultyScreen()">Let's Play!</button>
+</div>
+
+<div id="difficulty-screen" class="screen">
+  <h2>Select Difficulty</h2>
+  <button onclick="selectDifficulty('easy')">Easy</button>
+  <button onclick="selectDifficulty('medium')">Medium</button>
+  <button onclick="selectDifficulty('hard')">Hard</button>
+</div>
+
+<div id="game-screen">
+  <div id="score-display">Donuts: <span id="score">0</span></div>
+  <div id="lives-display">Lives: <span id="lives-count">3</span></div>
+  <div id="tomato-strikes-display">Tomatoes: <span id="tomato-strikes-count">0</span>/3</div>
+  <div id="player-raccoon">
+    <svg class="raccoon-svg" viewBox="0 0 100 100"></svg>
+    <div id="player-accessory-overlay"></div>
+  </div>
+</div>
+
+<div id="game-over-screen" class="screen">
+  <h2>Game Over!</h2>
+  <p>You collected:</p>
+  <div id="final-score">0 Donuts!</div>
+  <p id="high-score-msg"></p>
+  <button onclick="showDifficultyScreen()">Play Again</button>
+  <button onclick="showCosmetics()">Customize Raccoon</button>
+</div>
+
+<div id="customize-screen" class="screen">
+  <h2>Customize Your Raccoon!</h2>
+  <p>Current Donuts: <span id="current-donuts-display">0</span></p>
+  <div style="position:relative;width:150px;height:150px;margin:20px auto;">
+    <svg id="preview-raccoon" class="raccoon-svg" viewBox="0 0 100 100"></svg>
+    <div id="preview-accessory-overlay"></div>
+  </div>
+  <div id="cosmetic-display"></div>
+  <div style="margin-top: 20px;">
+    <button id="buy-equip-button" style="display:none;"></button>
+    <button onclick="backToGameOver()">Back</button>
+  </div>
+</div>
+
+<script>
+const DIFF = {
+  easy: {spawnMin:1200, spawnMax:800, sizeMin:60, sizeMax:70, speedMin:2, speedMax:4, vegetableChance:0.1},
+  medium: {spawnMin:1000, spawnMax:400, sizeMin:50, sizeMax:60, speedMin:4, speedMax:7, vegetableChance:0.2},
+  hard: {spawnMin:800, spawnMax:200, sizeMin:40, sizeMax:50, speedMin:6, speedMax:10, vegetableChance:0.3}
+};
+
+let currentDifficulty='medium', score=0, lives=3, tomatoStrikes=0, gameActive=false;
+let playerX=0, gameInterval, spawnTimer, highScore=+localStorage.high ||0;
+let totalDonuts=+localStorage.total||0, selCos='none';
+let previewCosId = 'none';
+
+const RACCOON_SVG = `
+  <path d="M50 95 C20 95 5 70 5 50 C5 30 20 5 50 5 C80 5 95 30 95 50 C95 70 80 95 50 95 Z" fill="#3D3D3D"/>
+  <path d="M50 90 C30 90 20 75 20 60 C20 45 30 30 50 30 C70 30 80 45 80 60 C80 75 70 90 50 90 Z" fill="#5A5A5A"/>
+  <path d="M30 40 Q40 30 50 30 Q60 30 70 40 L75 50 L70 60 Q60 70 50 70 Q40 70 30 60 L25 50 Z" fill="#1A1A1A"/>
+  <path d="M50 60 Q45 55 40 60 Q45 65 50 65 Q55 65 60 60 Q55 55 50 60 Z" fill="#BFBFBF"/>
+  <circle cx="50" cy="62" r="3" fill="#000000"/>
+  <circle cx="40" cy="45" r="7" fill="#FFFFFF"/>
+  <circle cx="60" cy="45" r="7" fill="#FFFFFF"/>
+  <circle cx="40" cy="45" r="3" fill="#000000"/>
+  <circle cx="60" cy="45" r="3" fill="#000000"/>
+  <path d="M30 20 Q25 15 28 10 Q32 15 30 20 Z" fill="#5A5A5A"/>
+  <path d="M70 20 Q75 15 72 10 Q68 15 70 20 Z" fill="#5A5A5A"/>
+  <path d="M30 20 Q20 10 25 0 Q35 10 30 20 Z" fill="#3D3D3D"/>
+  <path d="M70 20 Q80 10 75 0 Q65 10 70 20 Z" fill="#3D3D3D"/>
+  <path d="M20 55 L22 57 L24 55 Z" fill="#333333" opacity="0.5"/>
+  <path d="M78 55 L76 57 L74 55 Z"  fill="#333333" opacity="0.5"/>
+  <path d="M48 85 L50 87 L52 85 Z" fill="#333333" opacity="0.5"/>
+`;
+
+const DONUT_SVG = `
+  <circle cx="25" cy="25" r="20" fill="#CD853F" stroke="#8B4513" stroke-width="1"/>
+  <path d="M5 25 A20 20 0 0 1 45 25 A20 20 0 0 1 5 25 Z" fill="#FFB6C1"/>
+  <path d="M10 20 Q15 10 25 10 T40 20" fill="#FFB6C1" transform="rotate(30 25 25)"/>
+  <path d="M12 30 Q17 20 27 20 T42 30" fill="#FFB6C1" transform="rotate(-15 25 25)"/>
+  <path d="M15 40 Q20 30 30 30 T45 40" fill="#FFB6C1" transform="rotate(60 25 25)"/>
+  <circle cx="25" cy="25" r="8" fill="#CD853F"/>
+  <rect x="15" y="10" width="2" height="5" fill="#FF0000" transform="rotate(20 15 10)"/>
+  <rect x="30" y="12" width="2" height="5" fill="#00FF00" transform="rotate(60 30 12)"/>
+  <rect x="20" y="35" width="2" height="5" fill="#0000FF" transform="rotate(100 20 35)"/>
+  <rect x="38" y="25" width="2" height="5" fill="#FFFF00" transform="rotate(150 38 25)"/>
+  <rect x="10" y="28" width="2" height="5" fill="#FF00FF" transform="rotate(200 10 28)"/>
+`;
+
+const TOMATO_SVG = `
+  <circle cx="25" cy="25" r="20" fill="#E74C3C" stroke="#C0392B" stroke-width="1"/>
+  <path d="M25 5 L23 10 L27 10 L25 5 Z" fill="#2ECC71"/>
+  <path d="M25 10 Q20 8 18 15 Q20 12 25 10 Z" fill="#27AE60"/>
+  <path d="M25 10 Q30 8 32 15 Q30 12 25 10 Z" fill="#27AE60"/>
+  <circle cx="35" cy="18" r="5" fill="rgba(255,255,255,0.4)"/>
+`;
+
+const cosmetics = [
+  {id:'none',cost:0,svg:''},
+  {id:'top-hat',cost:100,svg:`
+    <ellipse cx="50" cy="35" rx="30" ry="7" fill="#212121" stroke="#000" stroke-width="1"/>
+    <rect x="30" y="10" width="40" height="30" rx="5" ry="5" fill="#212121" stroke="#000" stroke-width="1"/>
+    <ellipse cx="50" cy="15" rx="25" ry="5" fill="#333333" stroke="#000" stroke-width="1"/>
+    <rect x="30" y="30" width="40" height="5" fill="#B71C1C"/>
+  `},
+  {id:'glasses',cost:120,svg:`
+    <circle cx="38" cy="45" r="15" fill="none" stroke="#333" stroke-width="3"/>
+    <circle cx="62" cy="45" r="15" fill="none" stroke="#333" stroke-width="3"/>
+    <line x1="38" y1="45" x2="62" y2="45" stroke="#333" stroke-width="3"/>
+    <path d="M62 45 Q70 35 75 30" fill="none" stroke="#333" stroke-width="3"/>
+  `},
+  {id:'bow',cost:200,svg:`
+    <path d="M30 35 Q20 25 30 15 Q40 25 30 35 Z" fill="#FF69B4" stroke="#C2185B" stroke-width="1"/>
+    <path d="M70 35 Q80 25 70 15 Q60 25 70 35 Z" fill="#FF69B4" stroke="#C2185B" stroke-width="1"/>
+    <circle cx="50" cy="25" r="8" fill="#C71585" stroke="#880E4F" stroke-width="1"/>
+  `}
+];
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>{
+    s.classList.remove('active');
+  });
+
+  const targetScreen = document.getElementById(id);
+  if (id !== 'game-screen') {
+      targetScreen.classList.add('active');
+      document.getElementById('game-screen').style.display = 'none';
+  } else {
+      document.getElementById('game-screen').style.display = 'block';
+  }
+
+  document.querySelector('.intro-raccoon svg').innerHTML = RACCOON_SVG;
+  document.getElementById('player-raccoon').querySelector('svg').innerHTML = RACCOON_SVG;
+  document.getElementById('preview-raccoon').innerHTML = RACCOON_SVG;
+
+  const accessoryOverlay = id === 'customize-screen' ? getCosmeticSVG(previewCosId) : getCosmeticSVG(selCos);
+  document.getElementById('player-accessory-overlay').innerHTML = accessoryOverlay;
+  document.getElementById('preview-accessory-overlay').innerHTML = accessoryOverlay;
+
+  const music=document.getElementById('game-music');
+  if(id==='game-screen') music.play(); else music.pause(),music.currentTime=0;
+}
+
+function showInfoScreen() {
+    showScreen('info-screen');
+}
+
+function showDifficultyScreen(){
+    showScreen('difficulty-screen');
+}
+
+function selectDifficulty(level){
+  currentDifficulty=level;
+  startGame();
+}
+
+function startGame(){
+  const cfg=DIFF[currentDifficulty];
+  score=0;
+  lives=3;
+  tomatoStrikes=0;
+  document.getElementById('score').innerText=0;
+  document.getElementById('lives-count').innerText=lives;
+  document.getElementById('tomato-strikes-count').innerText=`${tomatoStrikes}/3`;
+
+  const gameArea = document.getElementById('game-screen');
+  const playerRaccoon = document.getElementById('player-raccoon');
+  playerX = (gameArea.offsetWidth / 2) - (playerRaccoon.offsetWidth / 2);
+  playerRaccoon.style.left=playerX+'px';
+
+  gameActive=true;
+  showScreen('game-screen');
+
+  clearInterval(gameInterval);
+  clearInterval(spawnTimer);
+
+  document.addEventListener('keydown', handleKey);
+  document.addEventListener('keyup', handleKeyUp);
+
+  gameInterval = setInterval(updateGame,1000/60);
+  spawnTimer = setInterval(spawnGameObject, cfg.spawnMin + Math.random() * (cfg.spawnMax - cfg.spawnMin));
+}
+
+function endGame(){
+  gameActive=false;
+  clearInterval(gameInterval);
+  clearInterval(spawnTimer);
+
+  document.removeEventListener('keydown', handleKey);
+  document.removeEventListener('keyup', handleKeyUp);
+
+  document.querySelectorAll('.game-object').forEach(o=>o.remove());
+
+  document.getElementById('final-score').innerText = score+' Donuts!';
+  if(score>highScore){
+    highScore=score;
+    localStorage.high=highScore;
+    document.getElementById('high-score-msg').innerText='New High Score! '+highScore;
+  } else {
+    document.getElementById('high-score-msg').innerText='High Score: '+highScore;
+  }
+  totalDonuts += score;
+  localStorage.total=totalDonuts;
+
+  showScreen('game-over-screen');
+}
+
+function updateGame(){
+  if(!gameActive) return;
+
+  const gameArea = document.getElementById('game-screen');
+  const playerRaccoon = document.getElementById('player-raccoon');
+  const playerWidth = playerRaccoon.offsetWidth;
+  const gameAreaWidth = gameArea.offsetWidth;
+  const gameAreaHeight = gameArea.offsetHeight;
+
+  if(keys.a || keys.ArrowLeft) playerX = Math.max(0, playerX-8);
+  if(keys.d || keys.ArrowRight) playerX = Math.min(gameAreaWidth-playerWidth, playerX+8);
+  playerRaccoon.style.left = playerX+'px';
+
+  const livesDisplay = document.getElementById('lives-display');
+  if (lives === 2) {
+    livesDisplay.classList.remove('critical');
+    livesDisplay.classList.add('warning');
+  } else if (lives === 1) {
+    livesDisplay.classList.remove('warning');
+    livesDisplay.classList.add('critical');
+  } else if (lives > 2) {
+    livesDisplay.classList.remove('warning', 'critical');
+  }
+
+  document.querySelectorAll('.game-object').forEach(o=>{
+    let currentTop = parseFloat(o.style.top);
+    let newTop = currentTop + o.speed;
+    o.style.top = newTop+'px';
+
+    if(newTop > gameAreaHeight){
+      if(o.dataset.type==='donut'){
+        lives--;
+        document.getElementById('lives-count').innerText=lives;
+        if(lives<=0) {
+          o.remove();
+          return endGame();
+        }
+      }
+      o.remove();
+    } else {
+      const playerRect = playerRaccoon.getBoundingClientRect();
+      const objectRect = o.getBoundingClientRect();
+
+      if(objectRect.bottom > playerRect.top &&
+         objectRect.top < playerRect.bottom &&
+         objectRect.left < playerRect.right &&
+         objectRect.right > playerRect.left){
+
+        if(o.dataset.type === 'donut') {
+            score+=10;
+            document.getElementById('score').innerText=score;
+        } else if (o.dataset.type === 'tomato') {
+            tomatoStrikes++;
+            document.getElementById('tomato-strikes-count').innerText=`${tomatoStrikes}/3`;
+            if(tomatoStrikes >= 3) {
+                o.remove();
+                return endGame();
+            }
+        }
+        o.remove();
+      }
+    }
+  });
+}
+
+function spawnGameObject(){
+  if(!gameActive) return;
+
+  const cfg=DIFF[currentDifficulty];
+  const isDonut = Math.random() > cfg.vegetableChance;
+  const el=document.createElement('div');
+  el.className='game-object ' + (isDonut ? 'donut' : 'tomato');
+  el.dataset.type = isDonut?'donut':'tomato';
+
+  const size = cfg.sizeMin + Math.random()*(cfg.sizeMax-cfg.sizeMin);
+  el.style.width=el.style.height=size+'px';
+
+  const gameAreaWidth = document.getElementById('game-screen').offsetWidth;
+  el.style.left = Math.random()*(gameAreaWidth-size)+'px';
+  el.style.top='-50px';
+  el.speed = cfg.speedMin + Math.random()*(cfg.speedMax-cfg.speedMin);
+
+  el.innerHTML = isDonut ?
+    `<svg class="donut-svg" viewBox="0 0 50 50">${DONUT_SVG}</svg>` :
+    `<svg class="tomato-svg" viewBox="0 0 50 50">${TOMATO_SVG}</svg>`;
+  document.getElementById('game-screen').appendChild(el);
+}
+
+const keys = {};
+
+function handleKey(e){
+  if(e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.a = true;
+  if(e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.d = true;
+  if(["ArrowLeft","ArrowRight","a","A","d","D"].includes(e.key)) e.preventDefault();
+}
+
+function handleKeyUp(e){
+  if(e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.a = false;
+  if(e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.d = false;
+}
+
+function getCosmeticSVG(id) {
+  const cosmetic = cosmetics.find(c => c.id === id);
+  return cosmetic ? `<svg viewBox="0 0 100 100">${cosmetic.svg}</svg>` : '';
+}
+
+function handleBuyEquip() {
+    const selectedCosmetic = cosmetics.find(c => c.id === previewCosId);
+    if (!selectedCosmetic) return;
+
+    const isUnlocked = localStorage.getItem(`cosmetic_${selectedCosmetic.id}_unlocked`) === 'true';
+
+    if (isUnlocked) {
+        selCos = previewCosId;
+        localStorage.selCos = selCos;
+        showCosmetics();
+    } else {
+        if (totalDonuts >= selectedCosmetic.cost) {
+            totalDonuts -= selectedCosmetic.cost;
+            localStorage.total = totalDonuts;
+            localStorage.setItem(`cosmetic_${selectedCosmetic.id}_unlocked`, 'true');
+            selCos = previewCosId;
+            localStorage.selCos = selCos;
+            showCosmetics();
+        } else {
+            console.log("Not enough donuts to buy this cosmetic!");
+        }
+    }
+}
+
+function showCosmetics(){
+  showScreen('customize-screen');
+  document.getElementById('current-donuts-display').innerText=totalDonuts;
+  const cosmeticDisplay = document.getElementById('cosmetic-display');
+  cosmeticDisplay.innerHTML='';
+
+  const buyEquipButton = document.getElementById('buy-equip-button');
+  buyEquipButton.style.display = 'none';
+
+  cosmetics.forEach(c=>{
+    const div=document.createElement('div');
+    div.classList.add('cosmetic-item');
+
+    const isUnlocked = localStorage.getItem(`cosmetic_${c.id}_unlocked`) === 'true' || c.id === 'none';
+    const isAffordable = totalDonuts >= c.cost;
+
+    if (!isUnlocked) {
+        div.classList.add('locked');
+    } else {
+        div.classList.add('unlocked');
+    }
+
+    if(previewCosId===c.id) div.classList.add('selected');
+
+    div.onclick = ()=>{
+      previewCosId = c.id;
+      showCosmetics();
+      document.getElementById('preview-accessory-overlay').innerHTML = getCosmeticSVG(previewCosId);
+
+      buyEquipButton.style.display = 'inline-block';
+      buyEquipButton.onclick = handleBuyEquip;
+
+      if (isUnlocked) {
+          buyEquipButton.innerText = 'Equip';
+          buyEquipButton.disabled = (selCos === previewCosId);
+      } else {
+          buyEquipButton.innerText = `Buy (${c.cost} 🍩)`;
+          buyEquipButton.disabled = !isAffordable;
+      }
+    };
+
+    div.innerHTML = `
+      <svg viewBox="0 0 100 100">${c.svg}</svg>
+      <span>${c.id.replace(/-/g, ' ')}</span>
+      <span class="cosmetic-cost ${isAffordable?'affordable':''}">${c.cost > 0 ? c.cost + ' 🍩' : 'Free'}</span>
+    `;
+    cosmeticDisplay.appendChild(div);
+  });
+
+  document.getElementById('preview-accessory-overlay').innerHTML = getCosmeticSVG(previewCosId);
+}
+
+function backToGameOver(){
+    showScreen('game-over-screen');
+}
+
+document.adsdEventListener('DOMContentLoaded',()=>{
+  document.getElementById('game-music').volume=0.3;
+
+  const savedCosmetic = localStorage.getItem('selCos');
+  if (savedCosmetic) {
+    selCos = savedCosmetic;
+    previewCosId = savedCosmetic;
+  }
+
+  showScreen('welcome-screen');
+});
+</script>
+</body>
+</html>
